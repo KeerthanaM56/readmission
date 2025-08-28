@@ -26,7 +26,7 @@ from reportlab.lib.units import inch
 summarizer = None
 try:
     # Lazy import so the app still works if transformers/torch aren’t installed
-    from transformers import pipeline  # 
+    from transformers import pipeline  #
     summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-6-6")
     print("✅ Hugging Face summarizer loaded.")
 except Exception as e:
