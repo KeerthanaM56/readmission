@@ -1,0 +1,430 @@
+<!-- templates/patients.html -->
+{% extends "base.html" %} {% block title %}Patient Records - MedPredict AI{%
+endblock %} {% block content %}
+<div class="row mb-4">
+  <div class="col-12 d-flex justify-content-between align-items-center">
+    <div>
+      <h2 class="text-white mb-0">
+        <i class="fas fa-users me-2"></i>Patient Records
+      </h2>
+      <p class="text-white opacity-75">
+        Manage and view all patient predictions
+      </p>
+    </div>
+    <div>
+      <a href="{{ url_for('export_data') }}" class="btn btn-gradient me-2">
+        <i class="fas fa-download me-1"></i>Export Data
+      </a>
+      <a href="{{ url_for('predict') }}" class="btn btn-outline-light">
+        <i class="fas fa-plus me-1"></i>New Prediction
+      </a>
+    </div>
+  </div>
+</div>
+
+{% if rows %}
+<!-- Search and Filter -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4">
+            <input
+              type="text"
+              class="form-control"
+              id="search-input"
+              placeholder="Search patients..."
+            />
+          </div>
+          <div class="col-md-3">
+            <select class="form-select" id="risk-filter">
+              <option value="">All Risk Levels</option>
+              <option value="High">High Risk</option>
+              <option value="Medium">Medium Risk</option>
+              <option value="Low">Low Risk</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select" id="gender-filter">
+              <option value="">All Genders</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button
+              class="btn btn-outline-primary w-100"
+              onclick="clearFilters()"
+            >
+              <i class="fas fa-times me-1"></i>Clear
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Patient Records Table -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div
+        class="card-header d-flex justify-content-between align-items-center"
+      >
+        <h5 class="card-title mb-0">
+          <i class="fas fa-table me-2"></i>Patient Predictions ({{ rows|length
+          }} total)
+        </h5>
+        <div class="btn-group btn-group-sm">
+          <button
+            class="btn btn-outline-secondary"
+            onclick="toggleView('table')"
+          >
+            <i class="fas fa-table"></i>
+          </button>
+          <button
+            class="btn btn-outline-secondary"
+            onclick="toggleView('cards')"
+          >
+            <i class="fas fa-th-large"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <!-- Table View -->
+        <div id="table-view" class="table-responsive">
+          <table class="table table-hover mb-0" id="patients-table">
+            <thead class="table-light">
+              <tr>
+                <th>Patient ID</th>
+                <th>Age</th>
+                <th>Gender</th>
+                <th>Risk Level</th>
+                <th>Probability</th>
+                <th>BMI</th>
+                <th>Length of Stay</th>
+                <th>Doctor</th>
+                <th>Timestamp</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr
+                class="patient-row"
+                data-patient-id="{{ row.patient_id }}"
+                data-risk="{{ row.risk }}"
+                data-gender="{{ row.gender }}"
+                data-doctor="{{ row.doctor_name }}"
+              >
+                <td><strong>{{ row.patient_id }}</strong></td>
+                <td>{{ row.age }} years</td>
+                <td>
+                  <i
+                    class="fas fa-{{ 'mars' if row.gender == 'Male' else 'venus' }} me-1"
+                  ></i>
+                  {{ row.gender }}
+                </td>
+                <td>
+                  <span
+                    class="badge
+                      {% if row.risk == 'High' %} badge-high-risk
+                      {% elif row.risk == 'Medium' %} badge-medium-risk
+                      {% else %} badge-low-risk {% endif %}"
+                  >
+                    <i
+                      class="fas
+                        {% if row.risk == 'High' %} fa-exclamation-triangle
+                        {% elif row.risk == 'Medium' %} fa-exclamation-circle
+                        {% else %} fa-check-circle {% endif %} me-1"
+                    ></i>
+                    {{ row.risk }}
+                  </span>
+                </td>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <small class="me-2"
+                      >{{ "%.3f"|format(row.probability) }}</small
+                    >
+                    <div class="progress" style="width: 50px; height: 5px">
+                      <div
+                        class="progress-bar bg-{{ 'danger' if row.risk == 'High' else 'success' }}"
+                        style="width: {{ (row.probability * 100)|round(1) }}%"
+                      ></div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ row.bmi }}</td>
+                <td>{{ row.length_of_stay }} days</td>
+                <td>{{ row.doctor_name }}</td>
+                <td>
+                  <small class="text-muted">
+                    {{ row.timestamp.replace("_"," ").replace("-"," :") }}
+                  </small>
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <!-- ✅ Pass raw timestamp -->
+                   <a
+                    href="{{ url_for('download_pdf', patient_id=row.patient_id, timestamp=row.timestamp) }}"
+                    class="btn btn-outline-primary"
+                    title="Download Report"
+                    >
+                    <i class="fas fa-download"></i>
+                  </a>
+
+
+                    <button
+                      class="btn btn-outline-info"
+                      onclick="viewDetails('{{ row.patient_id }}', '{{ row.timestamp }}')"
+                      title="View Details"
+                    >
+                      <i class="fas fa-eye"></i>
+                    </button>
+                    <a
+                      href="{{ url_for('delete_record', patient_id=row.patient_id, timestamp=row.timestamp) }}"
+                      class="btn btn-outline-danger"
+                      onclick="return confirm('Are you sure you want to delete this record?')"
+                      title="Delete Record"
+                    >
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Card View -->
+        <div id="card-view" class="p-3" style="display: none">
+          <div class="row" id="patient-cards">
+            {% for row in rows %}
+            <div
+              class="col-md-6 col-lg-4 mb-3 patient-card"
+              data-patient-id="{{ row.patient_id }}"
+              data-risk="{{ row.risk }}"
+              data-gender="{{ row.gender }}"
+              data-doctor="{{ row.doctor_name }}"
+            >
+              <div class="card h-100">
+                <div class="card-body">
+                  <div
+                    class="d-flex justify-content-between align-items-start mb-2"
+                  >
+                    <h6 class="card-title">{{ row.patient_id }}</h6>
+                    <span
+                      class="badge badge-{{ 'high-risk' if row.risk == 'High' else 'low-risk' }}"
+                    >
+                      {{ row.risk }}
+                    </span>
+                  </div>
+                  <div class="row text-sm">
+                    <div class="col-6">
+                      <small class="text-muted">Age:</small><br />
+                      <strong>{{ row.age }} years</strong>
+                    </div>
+                    <div class="col-6">
+                      <small class="text-muted">Gender:</small><br />
+                      <strong>{{ row.gender }}</strong>
+                    </div>
+                    <div class="col-6 mt-2">
+                      <small class="text-muted">Probability:</small><br />
+                      <strong>{{ "%.3f"|format(row.probability) }}</strong>
+                    </div>
+                    <div class="col-6 mt-2">
+                      <small class="text-muted">BMI:</small><br />
+                      <strong>{{ row.bmi }}</strong>
+                    </div>
+                  </div>
+                  <hr />
+                  <small class="text-muted">Dr. {{ row.doctor_name }}</small
+                  ><br />
+                  <small class="text-muted"
+                    >{{ row.timestamp.replace("_"," ").replace("-"," :")
+                    }}</small
+                  >
+                </div>
+                <div class="card-footer">
+                  <div class="btn-group btn-group-sm w-100">
+                    <a
+                      href="{{ url_for('download_pdf', patient_id=row.patient_id, timestamp=row.timestamp) }}"
+                      class="btn btn-outline-primary"
+                    >
+                      <i class="fas fa-download"></i>
+                    </a>
+                    <button
+                      class="btn btn-outline-info"
+                      onclick="viewDetails('{{ row.patient_id }}', '{{ row.timestamp }}')"
+                    >
+                      <i class="fas fa-eye"></i>
+                    </button>
+                    <a
+                      href="{{ url_for('delete_record', patient_id=row.patient_id, timestamp=row.timestamp) }}"
+                      class="btn btn-outline-danger"
+                      onclick="return confirm('Are you sure?')"
+                    >
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Patient Details Modal -->
+<div class="modal fade" id="patientModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Patient Details</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body" id="patient-details">
+        <!-- Details will be loaded here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<!-- No Records -->
+<div class="row">
+  <div class="col-12">
+    <div class="card text-center">
+      <div class="card-body py-5">
+        <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+        <h4>No Patient Records Found</h4>
+        <p class="text-muted">
+          Start by creating your first patient risk prediction.
+        </p>
+        <a href="{{ url_for('predict') }}" class="btn btn-gradient">
+          <i class="fas fa-plus me-1"></i>Create First Prediction
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %} {% endblock %} {% block scripts %}
+<script>
+  let currentView = "table";
+
+  // Search and filter functionality
+  document
+    .getElementById("search-input")
+    .addEventListener("input", filterTable);
+  document
+    .getElementById("risk-filter")
+    .addEventListener("change", filterTable);
+  document
+    .getElementById("gender-filter")
+    .addEventListener("change", filterTable);
+
+  function filterTable() {
+    const searchTerm = document
+      .getElementById("search-input")
+      .value.toLowerCase();
+    const riskFilter = document.getElementById("risk-filter").value;
+    const genderFilter = document.getElementById("gender-filter").value;
+
+    const rows = document.querySelectorAll(".patient-row");
+    const cards = document.querySelectorAll(".patient-card");
+
+    // Filter table rows
+    rows.forEach((row) => {
+      const patientId = row.dataset.patientId.toLowerCase();
+      const risk = row.dataset.risk;
+      const gender = row.dataset.gender;
+      const doctor = row.dataset.doctor.toLowerCase();
+
+      const matchesSearch =
+        patientId.includes(searchTerm) || doctor.includes(searchTerm);
+      const matchesRisk = !riskFilter || risk === riskFilter;
+      const matchesGender = !genderFilter || gender === genderFilter;
+
+      if (matchesSearch && matchesRisk && matchesGender) {
+        row.style.display = "";
+      } else {
+        row.style.display = "none";
+      }
+    });
+
+    // Filter cards
+    cards.forEach((card) => {
+      const patientId = card.dataset.patientId.toLowerCase();
+      const risk = card.dataset.risk;
+      const gender = card.dataset.gender;
+      const doctor = card.dataset.doctor.toLowerCase();
+
+      const matchesSearch =
+        patientId.includes(searchTerm) || doctor.includes(searchTerm);
+      const matchesRisk = !riskFilter || risk === riskFilter;
+      const matchesGender = !genderFilter || gender === genderFilter;
+
+      if (matchesSearch && matchesRisk && matchesGender) {
+        card.style.display = "";
+      } else {
+        card.style.display = "none";
+      }
+    });
+  }
+
+  function clearFilters() {
+    document.getElementById("search-input").value = "";
+    document.getElementById("risk-filter").value = "";
+    document.getElementById("gender-filter").value = "";
+    filterTable();
+  }
+
+  function toggleView(view) {
+    currentView = view;
+    const tableView = document.getElementById("table-view");
+    const cardView = document.getElementById("card-view");
+
+    if (view === "table") {
+      tableView.style.display = "";
+      cardView.style.display = "none";
+    } else {
+      tableView.style.display = "none";
+      cardView.style.display = "";
+    }
+  }
+
+  function viewDetails(patientId, timestamp) {
+    // This would typically fetch detailed data from the server
+    // For now, we'll show basic info
+    document.getElementById("patient-details").innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+
+    const modal = new bootstrap.Modal(document.getElementById("patientModal"));
+    modal.show();
+
+    // Simulate loading details
+    setTimeout(() => {
+      document.getElementById("patient-details").innerHTML = `
+            <h6>Patient ID: ${patientId}</h6>
+            <p><strong>Assessment Time:</strong> ${timestamp}</p>
+            <p>Detailed patient information would be displayed here.</p>
+        `;
+    }, 1000);
+  }
+</script>
+{% endblock %}
